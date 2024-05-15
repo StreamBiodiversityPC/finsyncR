@@ -1,0 +1,46 @@
+Package: finsyncR
+Type: Package
+Title: An R Package to synchronize fish and invertebrate datasets from federal sources in the United States
+Version: 1.0.0
+Authors@R:
+    c(person(given = "anonymous",
+           family = "gopher",
+           role = c("aut", "cre"),
+           email = "usgs.streambiota@gmail.com")
+           )
+Maintainer: anonymous gopher <usgs.streambiota@gmail.com>
+Description:
+    The package includes functions that provide access to, manipulate, and harmonize
+    national-level aquatic biomonitoring datasets in the United States, with a
+    focus on fish and macroinvertebrates sampled in rivers and streams. The
+    package streamlines the process of retrieving and working with these data,
+    making the process of utilizing these data  easier for researchers. The data
+    resources used in this package are from United States Environmental Protection
+    Agency’s National Aquatic Resources Surveys, namely the National River and
+    Streams Assessment, and United States Geological Survey’s BioData. 
+License: CC0
+Copyright: This software is in the public domain because it contains materials
+    that originally came from the U.S. Environmental Protection Agency.
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.2.3
+Roxygen: list(markdown = TRUE)
+Imports: 
+    magrittr,
+    dplyr (>= 1.1.0),
+    tidyr (>= 1.1.2),
+    stringr (>= 1.4.0),
+    utils,
+    tidyselect (>= 1.1.0),
+    httr,
+    data.table,
+    lubridate,
+    bit64
+Depends:
+    R (>= 3.6.0)
+Suggests: 
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
+VignetteBuilder: knitr
+Config/testthat/edition: 3

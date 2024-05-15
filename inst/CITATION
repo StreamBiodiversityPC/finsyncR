@@ -1,0 +1,13 @@
+citHeader("To cite finsyncR in publications use:")
+
+citEntry(
+  entry = "Unpublished",
+  title = "finsyncR: R Package to synchronize fish and invertebrate datasets from federal sources in the United States",
+  author = personList(as.person("anonymous gopher")),
+  year = "2024",
+  note        = "R package version 1.0.0",
+ textVersion  =
+           paste("anonymous gopher (2024). finsyncR: R Package",
+                 "to synchronize fish and invertebrate datasets from federal",
+                 "sources in the United States. R package version 1.0.0")
+)

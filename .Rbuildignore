@@ -1,0 +1,14 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^doc$
+^Meta$
+^README\.Rmd$
+^LICENSE\.md$
+^\.github$
+[.]pptx$
+^R/ToDo\.R$
+^data-raw$
+[.]docx$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$

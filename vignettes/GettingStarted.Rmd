@@ -1,0 +1,429 @@
+---
+title: "Getting Started with finsyncR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options:
+  markdown:
+    wrap: sentence
+---
+
+```{=html}
+<style>
+    img {
+        border: 0;
+    }
+</style>
+```
+# Introduction
+
+`finsyncR` (**f**ish and **in**vertebrate **sync**hronizer in **R**) is an R package that flexibly acquires, processes, and integrates national-level fish and macroinvertebrate datasets collected in rivers and streams in the US.
+The sources of data for this package are the United States Environmental Protection Agency's (EPA) National Aquatic Resource Surveys (NARS), namely the National River and Streams Assessment (NRSA), and United States Geological Survey's (USGS) BioData.
+
+The package provides standardized abundance and occurrence data for fish and density and occurrence data for macroinvertebrates at a variety of levels of taxonomic resolution.
+The package can also match sampling sites to land cover data.
+
+The package reduces barriers to data use by providing flexible solutions to these barriers. 
+Barriers are summarized briefly [below](#TL;DR). Please see the associated [manuscript](linktomanuscript) that describes how these barriers are addressed in detail and the broader framework for the package.
+
+In this Getting Started Vignette, we provide a how-to guide for using the package (see [Table 1](#Table1) for example code).
+
+<br> <a id="Table1"></a> **Table 1.** Example code to generate macroinvertebrates and fish datasets given hypothetical research questions.
+
+| Research question                                                                                                            | Output dataset requested                                                                                                                               |                                                                                                                                                                                                                                                                         Macroinvertebrates |                                                                                                                                                                                                                        Fish |
+|:-----------------------------------------------------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+| How does density/CPUE change through time across EPA and USGS samples?                                                       | Density/CPUE at sites for lowest taxonomic resolution, with shared taxa only, removing hybrid fish, and excluding boatable streams/rivers              |                                  `getInvertData(dataType = "density",` <br> `taxonLevel = "Genus",` <br> `taxonFix = "lump",` <br> `agency = c("USGS","EPA"),` <br> `lifestage = FALSE,` <br> `rarefy = FALSE,` <br> `sharedTaxa = TRUE,` <br> `seed = 0,` <br> `boatableStreams = FALSE)` |          `getFishData(dataType = "density",` <br> `taxonLevel = "Species",` <br> `agency = c("USGS","EPA"),` <br> `standardize = "CPUE",` <br> `hybrids = FALSE,` <br> `sharedTaxa = TRUE,` <br> `boatableStreams = FALSE)` |
+| How does the composition of families differ between EPA and USGS samples?                                                    | Occurrence at sites for Family resolution, with all taxa, rarefying macroinvertebrate counts to 300 individuals, and excluding boatable streams/rivers |          `getInvertData(dataType = "occur",` <br> `taxonLevel = "Family",` <br> `taxonFix = "none",` <br> `agency = c("USGS","EPA"),` <br> `lifestage = FALSE,` <br> `rarefy = TRUE,`<br> `rarefyCount = 300,` <br> `sharedTaxa = FALSE,` <br> `seed = 1,` <br> `boatableStreams = FALSE)` |                                    `getFishData(dataType = "occur",` <br> `taxonLevel = "Family",` <br> `agency = c("USGS","EPA"),` <br> `standardize = "none",` <br> `sharedTaxa = FALSE,` <br> `boatableStreams = FALSE)` |
+| What are spatial occupancy patterns within the Upper-Midwest Ecoregion using the randomized sampling design of the EPA NARS? | Occurrence for lowest taxonomic resolution for only EPA samples, then filtered to the UWM Ecoregion                                                    | `getInvertData(dataType = "occur",` <br> `taxonLevel = "Family",` <br> `taxonFix = "none",` <br> `agency = c("EPA"),` <br> `rarefy = TRUE,`<br> `rarefyCount = 500,` <br> `sharedTaxa = FALSE,` <br> `seed = 1,` <br> `boatableStreams = TRUE) %>%` <br> `filter(NARS_Ecoregion == "UMW")` | `getFishData(dataType = "occur",` <br> `taxonLevel = "Family",` <br> `agency = c("EPA"),` <br> `standardize = "none",` <br> `sharedTaxa = FALSE,` <br> `boatableStreams = TRUE) %>%` <br> `filter(NARS_Ecoregion == "UMW")` |
+
+<br>
+
+
+
+```r
+library(devtools)
+##install the finsyncR package
+devtools::install_github("USEPA/finsyncR",
+                         build_vignette = TRUE)
+```
+
+
+```r
+##Read in the finsyncR package
+library(finsyncR)
+```
+
+<br>
+<a id="TL;DR"></a>
+
+# Summary of Benefits, Barriers Addressed, and Caveats
+
+The following is a brief summary of the benefits of output datasets, barriers addressed by package functionality, and caveats to be considered. Additional detail is provided in the manuscript.
+
+The benefits of using `finsyncR` to process and integrate the USGS and EPA datasets:
+
+* The package streamlines the process of acquiring, processing, and integrating fish and macroinvertebrate assemblages from USGS BioData and EPA NRSA ([Table 1](#Table1)).
+* Sampling sites cover a large spatial extent with high spatial resolution (Fig. 3 in Manuscript).
+*	The 27-year time span of the compiled macroinvertebrate and fish data is relatively long (Fig. 3 in Manuscript).
+*	The macroinvertebrate and fish assemblages sampled are taxonomically diverse (Fig. 2 in Manuscript).
+*	Sampling methodologies are consistent and comparable across samples (Fig. 7 in Manuscript).
+*	The streams and rivers sampled cover a range of human-disturbance levels and types (see [getNLCDData](#NLCD)).
+*	The approaches to data processing and integrating are flexible: occurrence, standardized abundance, or density community matrices at a variety of taxonomic levels can be generated for fish and macroinvertebrates, samples can be rarefied to generate occurrences, taxonomy can be harmonized with different options, community matrices can be generated according to agency and stream or river sizes (see `getInvertData()` and `getFishData()`).
+
+The barriers that this package addresses:
+
+*	The spatial sampling design is documented to clarify sampling extent and resolution (Fig. 3 in Manuscript).
+*	`finsyncR` processes and integrates datasets across years and federal agencies by harmonizing site and sample variable names (see “Acquiring Data” and “Processing Data across Years and Federal Agencies” in Manuscript).
+*	`finsyncR` provides options for accounting for differences in taxonomy between agencies and through time (see “Processing Data across Years and Federal Agencies” and “Accounting for Differences in Taxonomy between Agencies and through Time” in Manuscript).
+*	`finsyncR` calculates densities and standardized abundances from field counts of organisms (see “Calculating Densities and Standardized Abundances from Field Counts” in Manuscript).
+*	`finsyncR` provides options to account for differences in sampling effort across sampling events (see “Accounting for Differences in Sampling Effort across Sampling Events and Improvements in Taxonomic Identifications through Time” in Manuscript)
+*	Changes in the ability to make taxonomic identifications through time for macroinvertebrates is documented across orders, and options are provided to account for temporal differences in the ability to make identifications (see “Accounting for Differences in Sampling Effort across Sampling Events and Improvements in Taxonomic Identifications through Time” in Manuscript).
+
+The following caveats and disclaimers should be considered ahead of analyses:
+
+*	The approaches provided in this package are not the same as the approaches used in other USGS or EPA publications or national assessments. Replicating analyses may not produce identical results.
+*	The methods developed to join datasets have not been designed with the intent of adding other fish and macroinvertebrate datasets. The approaches could or could not be appropriate for other datasets.
+*	Most sites are only sampled once so there is low temporal replication of samples at the site level. Time series analyses at the site level are restricted to a small subset of available sites (Fig. 4 in manuscript).
+*	Variation in sampling effort and changes in the ability of taxonomists to make identifications through time likely influences detection probabilities of organisms, despite harmonization. These sources of variation could be important to account for in certain instances. Users should consider accounting for the following variables for macorinvertebrates: `PropID`, `AreaSampled_m`, and `Gen_ID_Prop`, and for fish: `ReachLengthFished_m`, `SampleMethod`, and `MethodEffort.`
+
+<br>
+
+# Biotic Datasets
+
+Two functions generate biotic datasets: `getInvertData()` and `getFishData()`, which generate community matrices for macroinvertebrates and fish, respectively.
+The data management workflow for these functions generally follows three major steps: acquiring data and initial formatting, processing data separately by agency, and finally integrating data between EPA and USGS sources ([Figure 1](#Figure1)).
+
+<br>
+
+<center>
+
+<a id="Figure1"></a>
+
+![**Figure 1**. Workflow diagram of the simplified data management steps used in the construction of community matrices for macroinvertebrates, `getInvertData()`, and fish, `getFishData()`. Function parameters specified in each step of data management are provided. The metadata for the output datasets with definitions for variables included in this workflow cna be accessed within the package using `vignettes("Metadata", "finsyncR")`.](https://github.com/mahonmb/Misc/blob/main/WorkFlow.png?raw=TRUE){width="700"}
+
+</center>
+
+<br>
+
+## Macroinvertebrates
+
+`getInvertData()` retrieves, cleans, and compiles the stream macroinvertebrate datasets collected by the USGS and EPA.
+The function harmonizes taxonomy of macroinvertebrates across agencies and through time.
+In addition, it accounts for differences in sample splitting, which vary by agency.
+The parameters in the `getInvertData()` function are `dataType`, `taxonLevel`, `taxonFix`, `agency`, `lifestage`, `rarefy`, `rarefyCount`, `sharedTaxa`, `seed` and `boatableStreams.` `dataType` refers to whether the sample by taxa community matrix contains density (`dataType = "density"`) or occurrence (`dataType = "occur"`) values.
+Density values are number of organisms per m^2^ and occurrence values are presence (1) or absence (0).
+
+`taxonLevel` refers to the taxonomic resolution (Genus, Class, Family, etc.) for the sample by taxa matrix.
+The input values for this parameter are case sensitive and must start with a capital letter.
+All observations taxonomically coarser than the  `taxonLevel` provided are dropped from the output community matrix.
+For instance, if `taxonLevel = "Genus"` , then observations identified at Subfamily, Family, Order, Class, or Phylum levels are dropped.
+When `taxonLevel = "Subfamily"`, for taxa without subfamilies, the Family-level designation is returned.
+The function also provides for the option of returning the lowest level of taxonomic identification for all specimen (`taxonLevel = "Mixed"`).
+"Genus" is the finest level of taxonomic resolution provided for macroinvertebrates.
+The package does not provide USGS species-level identifications for two reasons.
+
+Across the time span of the USGS and EPA macroinvertebrate datasets, the taxonomy of many macroinvertebrates changed, specifically membership of species within genera.
+`taxonFix` provides options to harmonize taxonomy through time, especially in instances in which membership of a given organism within a genus is not clear.
+
+The package provides three options for accounting for these changes in taxonomy through time using the parameter `taxonFix`.
+First, the default option `taxonFix = "lump"` creates complexes of genera, hereafter termed "lump genera", by combining all possible genera for the given organism.
+This approach prioritizes retaining observations of organisms by giving a unified name (e.g. genus1/genus2/genus3) to a complex of genera that have been linked through changes in taxonomy through time.
+With this approach, there is no temporal increase or decrease in the number of genera, given that individual genera (e.g. genus1) never appear outside of the lumped genera name (e.g. genus1/genus2/genus3).
+
+The second option, `taxonFix = "remove"`, prioritizes accurate identification by dropping observations that cannot be confidently identified to a single genus, which includes the complexes of genera previously described.
+In addition, `taxonFix = "remove"` also removes organisms identified as slash genera (e.g. Cricotopus/Orthocladius), which are identifications given to organisms during identification when multiple genera cannot be distinguished according to an identification key.
+So, `taxonFix = "remove"` results in a dataset that has fewer genera compared to a dataset generated with `taxonFix = "lump"`.
+`taxonFix = "remove"` is the best option if accurate identification is a high priority for users.
+
+Finally, `taxonFix = "none"` makes no adjustment and returns identifications in their original forms.
+The `taxonFix = "none"` option generates slash genera for organisms that are given a slash genus either at the time of identification or to harmonize occurrences of slash genera between USGS and EPA observations, as described above.
+
+`taxonFix` operates on the genus level, so `taxonFix` must be set to `"none"` when `taxonLevel` is set to any taxonomic resolution other than `"Genus"` or `"Mixed"`.
+Care should be taken to harmonize taxonomy either with the approaches provided or some alternative when long time scale datasets on the entire community of macroinvertebrates are generated because changes in taxonomy can make it artificially appear as though some genera are either appearing or disappearing in time.
+
+`agency` refers to the agency that collected the data.
+The default is `c("USGS", "EPA")` and results in the largest dataset.
+
+`boatableStreams` provides the option to include data from large streams and rivers that are too deep to be sampled by wading along with wadeable streams.
+All USGS macroinvertebrate sampling locations are considered wadeable streams, while EPA samples both wadeable streams and boatable rivers.
+As such, `boatableStreams` should only be `TRUE` when `agency` is set to `"EPA"` only, to ensure the highest comparability between the two agency datasets.
+
+`rarefy` provides an option to randomly subsample samples to a user defined number of individuals.
+The target number of organisms identified within a sample varies across programs, agencies, time, and space, which introduces variation in output datasets.
+Target counts are typically 500 individuals for EPA samples, and they range from 100-600 for USGS samples.
+This parameter can be used to account for differences in the number of individuals sampled, which can be useful in the calculation of diversity metrics.
+When `rarefy = TRUE`, only samples containing at least `rarefyCount` individuals are retained.
+The rarefaction level defaults to 300 individuals, `rarefyCount = 300`.
+
+Use `seed =` and provide an integer to consistently generate output from the function.
+This parameter is passed to `set.seed()` internally.
+When generating density values, use `dataType = "density"` and `rarefy = FALSE` (default).
+
+`lifestage` refers to whether the generated site by taxa matrix should include lifestage information for each organism.
+If `lifestage = TRUE`, the generated matrix will have separate columns for the various lifestages collected for each taxon.
+Lifestage is only provided for the USGS samples.
+
+`sharedTaxa` refers to whether the resulting dataset should retain only taxa that are found by both agencies.
+Set `sharedTaxa = FALSE` when generating a dataset for only one agency.
+We recommend using `sharedTaxa = TRUE` for building a dataset with both agencies, so that species pools are consistent.
+
+
+```r
+##This code will generate density estimates at the Genus level for all samples
+##in USGS BioData. Lifestage information will be ignored.
+
+Inverts <- getInvertData(dataType = "density",
+                         taxonLevel = "Genus",
+                         agency = "USGS",
+                         lifestage = FALSE,
+                         rarefy = FALSE,
+                         boatableStreams = FALSE)
+```
+
+```r
+head(Inverts)[,1:26]
+```
+
+```
+##   Agency      SampleID ProjectLabel           SiteNumber                 StudyReachName CollectionDate
+## 1   USGS BDB-000025076  WHMI BioTDB USGS-393259085101200 393259085101200-A-NAWQA-BioTDB     1999-07-13
+## 2   USGS BDB-000025078  WHMI BioTDB        USGS-03245500        03245500-A-NAWQA-BioTDB     1999-07-14
+## 3   USGS BDB-000025080  WHMI BioTDB        USGS-03246400        03246400-A-NAWQA-BioTDB     1999-07-15
+## 4   USGS BDB-000025082  WHMI BioTDB USGS-395534084091400 395534084091400-A-NAWQA-BioTDB     1999-07-07
+## 5   USGS BDB-000025084  WHMI BioTDB USGS-395650083504400 395650083504400-A-NAWQA-BioTDB     1999-07-06
+## 6   USGS BDB-000025126  WHMI BioTDB USGS-392246084340100 392246084340100-A-NAWQA-BioTDB     1999-07-13
+##   CollectionYear CollectionMonth CollectionDayOfYear Latitude_dd Longitude_dd CoordinateDatum    COMID
+## 1           1999               7                 194    39.54977    -85.16996           NAD27  3923217
+## 2           1999               7                 195    39.17145    -84.29799           NAD27 25243939
+## 3           1999               7                 196    39.05895    -84.05132           NAD27  3936150
+## 4           1999               7                 188    39.92617    -84.15383           NAD27  3985952
+## 5           1999               7                 187    39.94728    -83.84549           NAD27  3985520
+## 6           1999               7                 194    39.37950    -84.56689           NAD27  3885882
+##   StreamOrder WettedWidth PredictedWettedWidth_m NARS_Ecoregion SampleTypeCode AreaSampTot_m2 FieldSplitRatio
+## 1           4          NA                  27.88            SAP           IRTH           1.25               1
+## 2           5          NA                  43.55            TPL           IRTH           1.25               1
+## 3           4          NA                     NA            TPL           IRTH           1.25               1
+## 4           5          NA                  46.70            TPL           IRTH           1.25               1
+## 5           5          NA                  28.50            TPL           IRTH           1.25               1
+## 6           7          NA                 100.42            TPL           IRTH           1.25               1
+##   LabSubsamplingRatio PropID Gen_ID_Prop
+## 1              0.0170 0.0170   0.8838527
+## 2              0.0347 0.0347   0.8655914
+## 3              0.0397 0.0397   0.8084416
+## 4              0.0149 0.0149   0.7481297
+## 5              0.0298 0.0298   0.7476923
+## 6              0.0113 0.0113   0.8468208
+##   Acentrella.Acerpenna.Amercaenis.... [TRUNCATED] Antocha Cardiocladius.Eukiefferiella.Tvetenia
+## 1                                          3104.8    94.4                                1176.0
+## 2                                          1497.6     0.0                                  68.8
+## 3                                          2217.6     0.0                                   0.0
+## 4                                          2365.6    53.6                                 107.2
+## 5                                          1263.2     0.0                                 994.4
+## 6                                          1058.4     0.0                                   0.0
+
+```
+
+<br>
+
+Macroinvertebrate community matrices generated with `taxonLevel = "Mixed"` and `taxonFix = "lump"` can be further processed by the function `lumpRollUp()`.
+The function rolls lump genera to the lowest common taxonomic designation (see Table S1 in the manuscript; e.g., Elimia/Pleurocera to Pleuroceridae).
+The function then sums occurrence or density data within duplicate broader taxonomic designations (occurrences summed then converted to 0/1).
+This function does not adjust slash taxa (those organisms that were identified to a slash genus at the time of identification).
+The input parameter to the function is a dataset generated by `getInvertData(taxonLevel = "Mixed", taxonFix = "lump")`.
+
+<br>
+
+## Fish
+
+`getFishData()` retrieves, cleans, and compiles the stream fish datasets collected by USGS and EPA.
+Fish species names output by the function are unified and current, meaning that species that may have had multiple, synonymous names in the raw datasets have been combined and replaced with the current scientific name.
+
+The parameters in the `getFishData()` function are `dataType`, `taxonLevel`, `agency`, `standardize`, `hybrids`, `sharedTaxa`, and `boatableStreams.` `dataType` refers to whether the sample by taxa community matrix contains abundance (`dataType = "abun"`) or occurrence (`dataType = "occur"`) values.
+Abundance values are counts and occurrence values are presence (1) or absence (0).
+
+`taxonLevel` refers to the taxonomic resolution (Species, Genus, Class, Family, etc.) for the sample by taxa matrix.
+The input values for this parameter must start with a capital letter.
+All observations taxonomically coarser than the taxonLevel provided are dropped from the output community matrix.
+For instance, if `taxonLevel = "Genus"`, then observations identified at Family, Order, Class, or Phylum levels are dropped.
+The lowest level of taxonomic identification for fish is `"Species"` because of inconsistent subspecies identifications.
+
+`agency` refers to the agency that collected the data.
+The default is c("USGS", "EPA") and results in the largest dataset.
+
+`standardize` refers to whether the abundance values in the community matrix should be standardized by unit effort and reach length fished to account for differences in sampling effort.
+Specifically, catch per unit effort, `standardize = "CPUE"`, results in abundances that are divided by the product of sampling effort (e.g. minutes shocked, number of seine hauls, or snorkel transects) and stream length sampled.
+
+To account for differences in efficacy between shocking, seining, and snorkeling, multigear mean standardization (`standardize = "MGMS"`) is another standardization method provided as an alternative to catch per unit effort (`standardize = "CPUE"`). See [Gibson-Reinemer et al. (2017)](https://doi.org/10.1139/cjfas-2016-0003) for more regarding the computation of MGMS.
+
+Users should set standardize to either "`CPUE`" or "`MGMS`" if they are interested in comparing abundance values across sites.
+Note: some of the samples lacked information on either stream length sampled or sampling effort.
+Therefore, if a user is interested in occurrence (presence/absence) data only, then set `dataType = "occur"` and `standardize = "none"`, which provides an occurrence dataset, which contains the samples that are dropped with standardization.
+
+`hybrid` provides the option to exclude fish identified as a hybrid of two species.
+Because hybrids are difficult to identify in the field, users should keep the default setting `hybrid = FALSE` if accurate identification is important.
+
+`sharedTaxa` refers to whether the resulting dataset should contain only taxa that are found in both agency datasets.
+Set `sharedTaxa = FALSE` when building a dataset with samples collected by only one agency.
+We recommend using `sharedTaxa = TRUE` when building a dataset with samples collected by both agencies, so species pools are consistent.
+
+Finally, `boatableStreams` provides the option to include data from large streams and rivers that are too deep to sample by wading.
+When `boatableStreams = TRUE`, the output dataset will include both boatable and wadeable streams and rivers.
+
+
+```r
+##This code will generate occurrences at the Family level for all samples
+##in both the USGS and EPA databases.
+
+Fish <- getFishData(dataType = "occur",
+                    taxonLevel = "Family",
+                    agency = c("USGS", "EPA"),
+                    standardize = "none",
+                    hybrids = FALSE,
+                   boatableStreams = TRUE)
+```
+
+```r
+head(Fish)[,1:28]
+```
+
+```
+##   Agency      SampleID ProjectLabel    SiteNumber      StudyReachName CollectionDate CollectionYear
+## 1   USGS BDB-000025003     MMSD Eco USGS-04086600 04086600-A-MMSD Eco     2007-09-10           2007
+## 2   USGS BDB-000025011     MMSD Eco USGS-04087030 04087030-A-MMSD Eco     2007-09-05           2007
+## 3   USGS BDB-000025015     MMSD Eco USGS-04087070 04087070-A-MMSD Eco     2007-09-05           2007
+## 4   USGS BDB-000025019     MMSD Eco USGS-04087088 04087088-A-MMSD Eco     2007-09-04           2007
+## 5   USGS BDB-000025023     MMSD Eco USGS-04087119 04087119-A-MMSD Eco     2007-09-12           2007
+## 6   USGS BDB-000025034     MMSD Eco USGS-04087204 04087204-A-MMSD Eco     2007-09-07           2007
+##   CollectionMonth CollectionDayOfYear Latitude_dd Longitude_dd CoordinateDatum    COMID StreamOrder WettedWidth
+## 1               9                 253    43.28028    -87.94250           NAD83 12162572           5          NA
+## 2               9                 248    43.17278    -88.10389           NAD83 12163826           3          NA
+## 3               9                 248    43.12361    -88.04361           NAD83 12163856           3          NA
+## 4               9                 247    43.05472    -88.04611           NAD83 12163882           2          NA
+## 5               9                 255    43.04383    -88.00511           NAD83 12163888           1          NA
+## 6               9                 250    42.92500    -87.87000           NAD83 12168981           2          NA
+##   PredictedWettedWidth_m NARS_Ecoregion SampleTypeCode FishCollection ReachLengthFished_m SampleMethod
+## 1                  46.17            TPL Large Wadeable Fish Collected                 300        Seine
+## 2                   8.98            TPL Small Wadeable Fish Collected                 150        Seine
+## 3                   8.50            TPL Small Wadeable Fish Collected                 150        Seine
+## 4                   6.72            TPL Small Wadeable Fish Collected                 150        Seine
+## 5                   5.12            TPL Small Wadeable Fish Collected                 150        Seine
+## 6                   7.26            TPL Small Wadeable Fish Collected                 150        Seine
+##   MethodEffort MethodEffort_units Centrarchidae Cyprinidae Catostomidae Ictaluridae Percidae
+## 1            3    Number of Hauls             1          1            0           0        0
+## 2            3    Number of Hauls             0          1            0           0        0
+## 3            3    Number of Hauls             0          1            1           0        0
+## 4            5    Number of Hauls             1          1            1           0        0
+## 5            3    Number of Hauls             0          1            1           0        0
+## 6            3    Number of Hauls             0          1            1           0        0
+```
+
+<br>
+
+# National Land Cover Database
+
+There is one function that generates land cover data, `getNLCDData()`.
+`getNLCDData()` retrieves land cover data from the Multi-Resolution Land Characteristics Consortium's National Land Cover Database (NLCD) for sampling sites at the catchment and watershed scales.
+This function directly accesses the EPA StreamCat API ([Hill et al. 2015](https://onlinelibrary.wiley.com/doi/full/10.1111/1752-1688.12372)) to gather NLCD data based on sampling location from NHDPlus COMIDs and collection year.
+`getNLCDData()` matches sampling sites to NLCD data in time.
+
+Users can specify whether NLCD data should be extracted at the catchment `Cat` or watershed `Ws` scales.
+Catchments are the portion of the landscape where surface flow drains into a COMID stream segment, excluding any upstream contributions.
+Watersheds are the set of hydrologically connected catchments, consisting of all upstream catchments that contribute flow into any catchment.
+See [StreamCat](https://www.epa.gov/national-aquatic-resource-surveys/streamcat-dataset) documentation for more information.
+
+NLCD data can be grouped into five broad categories using `group = TRUE`.
+These categories include "water" (grouping of all wetland and open water land covers), "urban" (grouping of all urban land use), "forest" (grouping of deciduous, coniferous, and mixed forests land covers), "open" (grouping of shrub, barren land, grassland, and hay/pasture land covers), and "crop" (cultivated crop land use).
+
+
+```r
+dat = data.frame(SiteNumber = "USGS-05276005",
+                 CollectionYear = c(2005, 2007, 2009))
+
+getNLCDData(data = dat,
+            scale = "Cat",
+            group = FALSE)
+```
+
+```
+##      SiteNumber CollectionYear PCTURBMD_Cat PCTMXFST_Cat PCTHAY_Cat PCTURBLO_Cat PCTSHRB_Cat PCTURBHI_Cat
+## 1 USGS-05276005           2005         0.25         1.02      41.31         3.84           0         0.11
+## 2 USGS-05276005           2007         0.35         1.02      41.48         3.84           0         0.11
+## 3 USGS-05276005           2009         0.46         1.02      41.48         3.91           0         0.11
+##   PCTHBWET_Cat PCTCROP_Cat PCTGRS_Cat PCTOW_Cat PCTBL_Cat PCTCONIF_Cat PCTDECID_Cat PCTURBOP_Cat PCTWDWET_Cat
+## 1         2.81       38.56          0         0         0            0         0.46         3.20         8.44
+## 2         2.64       38.56          0         0         0            0         0.46         3.10         8.44
+## 3         2.50       38.56          0         0         0            0         0.46         2.92         8.59
+```
+
+```r
+##select 10 random samples from the dataset to get LULC data for
+set.seed(1)
+Fish_forNLCD = Fish[sample(1:1000,10, replace = FALSE),] %>%
+  dplyr::select(SiteNumber, CollectionYear)
+
+getNLCDData(data = Fish_forNLCD,
+            scale = "Cat",
+            group = TRUE)
+```
+
+```
+##       SiteNumber CollectionYear PctCrop_Cat PctFst_Cat PctOpn_Cat PctUrb_Cat PctWater_Cat
+## 1  USGS-01072845           2000        0.00      75.35       8.53       5.30        10.81
+## 2  USGS-05318630           1997       89.00       0.40       0.60       5.29         4.70
+## 3  USGS-01089743           2000        0.00      55.50       1.16      29.45        13.91
+## 4  USGS-13010065           1994        0.00      22.46      28.76      13.15        35.62
+## 5  USGS-05082625           1993       69.39       3.81       2.94       5.51        18.35
+## 6  USGS-02458150           2001        0.00       8.38       0.67      90.22         0.73
+## 7  USGS-08050800           1993        0.00      30.26      63.96       4.30         1.50
+## 8  USGS-01096544           2000        0.44      32.19      19.34      25.82        22.20
+## 9  USGS-01372200           1995        0.00      56.89      17.54      20.46         5.10
+## 10 USGS-01144000           1993        0.00      87.58       5.25       6.66         0.50
+```
+
+<br>
+
+# Usage Notes
+
+For metadata on output datasets, see the "Metadata" vignette `vignettes("Metadata", "finsyncR")`.
+In addition, users may wish to calculate abundances and raw counts or to rarefy raw counts. This functionality is not inherently provided within the `getInvertData()` function, but code to make these calculations can be found in the "Calculating Abundances, Raw Counts, and Rarefying Raw Counts" vignette `vignettes("BackCalculation", "finsyncR")`.
+
+If you have any questions or any issues with these functions, please post on our Github repository [Github](https://github.com/USEPA/finsyncR/issues) or reach out to Samantha Rumschlag ([rumschlag.samantha\@epa.gov](mailto:rumschlag.samantha@epa.gov){.email}) or Michael Mahon ([mahon.michael\@epa.gov](mailto:mahon.michael@epa.gov){.email}).
+
+Data from USGS BioData were obtained from Pete Ruhl ([pmruhl\@usgs.gov](mailto:pmruhl@usgs.gov){.email}), and data from the National Aquatic Resource Surveys are directly downloaded by the package from the NARS website.
+
+# Data Citations:
+
+U.S. Geological Survey, 2020.
+BioData - Aquatic bioassessment data for the Nation: U.S. Geological Survey database, accessed 17 December 2020, at <https://doi.org/10.5066/F77W698B>
+
+U.S. Environmental Protection Agency.
+2006.
+National Aquatic Resource Surveys.
+Wadeable Streams Assessment 2004 (data and metadata files).
+Available from U.S.
+EPA web page: <https://www.epa.gov/national-aquatic-resource-surveys/data-national-aquatic-resource-surveys>.
+
+U.S. Environmental Protection Agency.
+2016.
+National Aquatic Resource Surveys.
+National Rivers and Streams Assessment 2008-2009 (data and metadata files).
+Available from U.S.
+EPA web page: <https://www.epa.gov/national-aquatic-resource-surveys/data-national-aquatic-resource-surveys>.
+
+U.S. Environmental Protection Agency.
+2020.
+National Aquatic Resource Surveys.
+National Rivers and Streams Assessment 2013-2014 (data and metadata files).
+Available from U.S.
+EPA web page: <https://www.epa.gov/national-aquatic-resource-surveys/data-national-aquatic-resource-surveys>.
+
+U.S. Environmental Protection Agency.
+2022.
+National Aquatic Resource Surveys.
+National Rivers and Streams Assessment 2018-2019 (data and metadata files).
+Available from U.S.
+EPA web page: <https://www.epa.gov/national-aquatic-resource-surveys/data-national-aquatic-resource-surveys>.
+
+<br>
